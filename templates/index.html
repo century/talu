@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0" />
+		<title>Simple Messaging App</title>
+		<style>
+			body {
+				font-family: serif;
+				margin: 20px;
+			}
+			#messages {
+				padding: 10px;
+				margin-bottom: 20px;
+			}
+			.message-container {
+				display: flex;
+				justify-content: space-between;
+				margin-bottom: 10px;
+			}
+			.message-content {
+				flex: 1;
+			}
+			.username {
+				text-align: right;
+				font-weight: bold;
+				width: 150px;
+				padding-right: 0.5rem;
+			}
+			.timestamp {
+				float: right;
+				font-size: 0.8em;
+				color: #888;
+				margin-left: 10px;
+			}
+			.message {
+				word-wrap: break-word;
+			}
+			.delete-button {
+				background-color: red;
+				color: white;
+				border: none;
+				padding: 5px 10px;
+				cursor: pointer;
+			}
+			input,
+			button {
+				font-size: 1rem;
+				padding: 0.5rem;
+				border: 1px solid grey;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Chat</h1>
+		<div id="messages"></div>
+
+		<form id="messageForm">
+			<input
+				type="hidden"
+				id="username" />
+			<input
+				type="text"
+				id="content"
+				placeholder="Enter message"
+				required />
+			<button type="submit">Send</button>
+		</form>
+
+		<script>
+			// Check if a username is stored in localStorage
+			let username = localStorage.getItem("username");
+
+			if (!username) {
+				username = prompt("Enter your username:");
+				if (username) {
+					localStorage.setItem("username", username);
+				} else {
+					alert("Username is required to continue.");
+					location.reload();
+				}
+			}
+
+			document.getElementById("username").value = username;
+
+			const form = document.getElementById("messageForm");
+
+			form.addEventListener("submit", async (e) => {
+				e.preventDefault();
+				const content = document.getElementById("content").value;
+
+				const response = await fetch("/send", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ username, content }),
+				});
+
+				if (response.ok) {
+					form.reset();
+					loadMessages(); // Load messages right after sending
+				}
+			});
+
+			async function loadMessages() {
+				const response = await fetch("/messages");
+				const messages = await response.json();
+				const messagesDiv = document.getElementById("messages");
+				messagesDiv.innerHTML = "";
+
+				messages.forEach((msg) => {
+					const messageContainer = document.createElement("div");
+					messageContainer.classList.add("message-container");
+
+					const usernameElement = document.createElement("div");
+					usernameElement.classList.add("username");
+					usernameElement.textContent = msg.username;
+
+					const contentElement = document.createElement("div");
+					contentElement.classList.add("message-content");
+
+					const messageElement = document.createElement("span");
+					messageElement.classList.add("message");
+					messageElement.textContent = msg.content;
+
+					const timestampElement = document.createElement("span");
+					timestampElement.classList.add("timestamp");
+					timestampElement.textContent = `[${msg.timestamp}]`;
+
+					// Create delete button for admin user
+					if (username === "QAQcew") {
+						const deleteButton = document.createElement("button");
+						deleteButton.classList.add("delete-button");
+						deleteButton.textContent = "Delete";
+						deleteButton.onclick = async () => {
+							const deleteResponse = await fetch(`/delete/${msg.id}?username=${username}`, {
+								method: "DELETE",
+							});
+							if (deleteResponse.ok) {
+								loadMessages(); // Reload messages after deletion
+							} else {
+								alert("Error deleting message");
+							}
+						};
+						contentElement.appendChild(deleteButton);
+					}
+
+					contentElement.appendChild(messageElement);
+					contentElement.appendChild(timestampElement);
+
+					messageContainer.appendChild(usernameElement);
+					messageContainer.appendChild(contentElement);
+
+					messagesDiv.appendChild(messageContainer);
+				});
+
+				messagesDiv.scrollTop = messagesDiv.scrollHeight;
+			}
+
+			// Load messages on page load
+			loadMessages();
+
+			// Poll for new messages every 3 seconds
+			setInterval(loadMessages, 3000);
+		</script>
+	</body>
+</html>
